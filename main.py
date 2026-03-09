@@ -5,7 +5,7 @@ from typing import Any
 import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from supabase import Client, create_client
 
 load_dotenv()
@@ -30,7 +30,16 @@ if SUPABASE_URL and SUPABASE_KEY:
 user_states: dict[str, dict[str, Any]] = {}
 
 
+def build_public_image_url(foto_path: str | None) -> str | None:
+    if not foto_path or not SUPABASE_URL:
+        return None
+    return f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{foto_path}"
+
+
 def get_media_url(image_id: str) -> tuple[str, str | None]:
+    if not WHATSAPP_TOKEN:
+        raise RuntimeError("WHATSAPP_TOKEN não configurado.")
+
     url = f"{GRAPH_URL}/{image_id}"
     headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
 
@@ -48,11 +57,12 @@ def get_media_url(image_id: str) -> tuple[str, str | None]:
 
 
 def download_media_bytes(media_url: str) -> bytes:
-    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
+    if not WHATSAPP_TOKEN:
+        raise RuntimeError("WHATSAPP_TOKEN não configurado.")
 
+    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
     response = requests.get(media_url, headers=headers, timeout=60)
     response.raise_for_status()
-
     return response.content
 
 
@@ -601,6 +611,245 @@ def root() -> dict[str, str]:
 @app.get("/health")
 def health() -> dict[str, bool]:
     return {"ok": True}
+
+
+@app.get("/registros")
+def listar_registros():
+    if not supabase:
+        return {"error": "Supabase não configurado."}
+
+    response = (
+        supabase
+        .table("registros_nascentes")
+        .select("*")
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    registros = response.data or []
+
+    saida = []
+    for item in registros:
+        saida.append({
+            "id": item.get("id"),
+            "created_at": item.get("created_at"),
+            "telefone": item.get("telefone"),
+            "tipo_nascente": item.get("tipo_nascente"),
+            "estado_local": item.get("estado_local"),
+            "ponto_referencia": item.get("ponto_referencia"),
+            "latitude": item.get("latitude"),
+            "longitude": item.get("longitude"),
+            "image_id": item.get("image_id"),
+            "foto_path": item.get("foto_path"),
+            "foto_url": build_public_image_url(item.get("foto_path")),
+            "status_envio": item.get("status_envio"),
+        })
+
+    return {"registros": saida}
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard():
+    return """
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Águas para Viver - Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f6f8f7;
+      color: #1f2937;
+    }
+    .topbar {
+      padding: 16px 20px;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .topbar h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+    .topbar p {
+      margin: 6px 0 0;
+      color: #6b7280;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      height: calc(100vh - 78px);
+    }
+    .sidebar {
+      background: white;
+      border-right: 1px solid #e5e7eb;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: #fff;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .card:hover {
+      background: #f9fafb;
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    .meta {
+      font-size: 13px;
+      color: #4b5563;
+      line-height: 1.45;
+    }
+    .badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: #ecfdf5;
+      color: #065f46;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+    .popup-img {
+      width: 100%;
+      max-width: 240px;
+      border-radius: 8px;
+      margin-top: 8px;
+      display: block;
+    }
+    .empty {
+      color: #6b7280;
+      font-size: 14px;
+    }
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: 280px 1fr;
+      }
+      .sidebar {
+        order: 2;
+        border-right: none;
+        border-top: 1px solid #e5e7eb;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🌱 Águas para Viver</h1>
+    <p>Mapa demonstrativo de registros de nascentes</p>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div id="lista"></div>
+    </aside>
+    <main id="map"></main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([-19.861, -44.608], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return '-';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    async function carregarRegistros() {
+      const res = await fetch('/registros');
+      const data = await res.json();
+      const registros = data.registros || [];
+      const lista = document.getElementById('lista');
+
+      if (!registros.length) {
+        lista.innerHTML = '<p class="empty">Nenhum registro encontrado.</p>';
+        return;
+      }
+
+      const bounds = [];
+
+      registros.forEach((r) => {
+        const lat = r.latitude;
+        const lng = r.longitude;
+
+        const fotoHtml = r.foto_url
+          ? `<img class="popup-img" src="${r.foto_url}" alt="Foto da nascente" />`
+          : '<p><em>Sem foto disponível</em></p>';
+
+        const popupHtml = `
+          <div style="min-width:220px;">
+            <strong>${escapeHtml(r.tipo_nascente || 'Nascente')}</strong><br/>
+            <b>Estado:</b> ${escapeHtml(r.estado_local)}<br/>
+            <b>Referência:</b> ${escapeHtml(r.ponto_referencia)}<br/>
+            <b>Telefone:</b> ${escapeHtml(r.telefone)}<br/>
+            <b>Data:</b> ${escapeHtml(r.created_at)}<br/>
+            ${fotoHtml}
+          </div>
+        `;
+
+        let marker = null;
+
+        if (lat !== null && lat !== undefined && lng !== null && lng !== undefined) {
+          marker = L.marker([lat, lng]).addTo(map).bindPopup(popupHtml);
+          bounds.push([lat, lng]);
+        }
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <h3>${escapeHtml(r.tipo_nascente || 'Nascente')}</h3>
+          <div class="meta">
+            <div><strong>Estado:</strong> ${escapeHtml(r.estado_local)}</div>
+            <div><strong>Referência:</strong> ${escapeHtml(r.ponto_referencia)}</div>
+            <div><strong>Coord.:</strong> ${escapeHtml(lat)}, ${escapeHtml(lng)}</div>
+          </div>
+          <span class="badge">Registro #${escapeHtml(r.id)}</span>
+        `;
+
+        card.addEventListener('click', () => {
+          if (marker) {
+            map.setView([lat, lng], 16);
+            marker.openPopup();
+          }
+        });
+
+        lista.appendChild(card);
+      });
+
+      if (bounds.length) {
+        map.fitBounds(bounds, { padding: [40, 40] });
+      }
+    }
+
+    carregarRegistros();
+  </script>
+</body>
+</html>
+    """
 
 
 @app.get("/webhook")
