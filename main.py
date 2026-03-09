@@ -278,7 +278,7 @@ def ask_onde_esta(to: str) -> dict[str, Any]:
 def ask_tempo_existencia(to: str) -> dict[str, Any]:
     sections = [
         {
-            "title": "Tempo de existência da nascente",
+            "title": "Tempo da nascente",
             "rows": [
                 {
                     "id": "tempo_0_10",
