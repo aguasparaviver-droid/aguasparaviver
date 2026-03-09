@@ -1309,7 +1309,7 @@ def dashboard():
 
     .details-panel {
       position: absolute;
-      top: 138px;
+      top: 118px;
       right: 20px;
       bottom: 20px;
       width: 380px;
