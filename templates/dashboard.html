@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="52" font-size="52">💧</text></svg>'>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Águas para Viver • Dashboard</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=4" />
+</head>
+<body>
+  <div id="app">
+    <div id="map"></div>
+
+    <button
+      id="floatingMenuButton"
+      class="floating-menu-btn glass"
+      title="Abrir/fechar barra lateral"
+      aria-label="Abrir/fechar barra lateral"
+      type="button"
+    >
+      ☰
+    </button>
+
+    <aside id="sidebar" class="sidebar glass">
+      <div class="sidebar-header">
+        <div>
+          <h1>💧 Águas para Viver</h1>
+          <p>
+            Monitoramento de nascentes com filtros ambientais, mapa interativo e acompanhamento dos registros.
+          </p>
+        </div>
+      </div>
+
+      <section class="kpis">
+        <div class="kpi-card">
+          <div class="kpi-number" id="kpiTotal">0</div>
+          <div class="kpi-label">Total</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-number" id="kpiMapeados">0</div>
+          <div class="kpi-label">No mapa</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-number" id="kpiPreservado">0</div>
+          <div class="kpi-label">Preservado</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-number" id="kpiDegradado">0</div>
+          <div class="kpi-label">Degradado</div>
+        </div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-head">
+          <h2>Camadas do mapa</h2>
+          <span class="section-mini">filtro + legenda</span>
+        </div>
+
+        <div class="filter-stack">
+          <label class="filter-chip filter-chip-preservado">
+            <input type="checkbox" id="filterPreservado" checked />
+            <span class="chip-dot"></span>
+            <span class="chip-text">Preservado</span>
+          </label>
+
+          <label class="filter-chip filter-chip-degradado">
+            <input type="checkbox" id="filterDegradado" checked />
+            <span class="chip-dot"></span>
+            <span class="chip-text">Degradado</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-head">
+          <h2>Resumo</h2>
+          <span class="section-mini">status</span>
+        </div>
+
+        <div class="summary-list">
+          <div class="summary-row">
+            <span>Sem coordenadas</span>
+            <strong id="summarySemCoord">0</strong>
+          </div>
+          <div class="summary-row">
+            <span>Com foto</span>
+            <strong id="summaryComFoto">0</strong>
+          </div>
+          <div class="summary-row">
+            <span>Sem foto</span>
+            <strong id="summarySemFoto">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-card grow">
+        <div class="section-head">
+          <h2>Registros sem coordenadas</h2>
+          <span class="badge" id="missingCount">0</span>
+        </div>
+
+        <div id="missingList" class="missing-list"></div>
+      </section>
+
+      <footer class="sidebar-footer">
+  <div class="footer-left">
+    <a
+      class="social-icon"
+      href="https://github.com/jadspereira"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="GitHub"
+      title="GitHub"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2.02c-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.7.08-.69.08-.69 1.15.08 1.75 1.18 1.75 1.18 1.02 1.75 2.67 1.24 3.32.95.1-.74.4-1.24.72-1.52-2.56-.29-5.25-1.28-5.25-5.71 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18a10.93 10.93 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.24 2.75.12 3.04.73.8 1.18 1.83 1.18 3.09 0 4.44-2.69 5.42-5.26 5.7.41.36.77 1.06.77 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/>
+      </svg>
+    </a>
+
+    <a
+      class="social-icon"
+      href="https://www.linkedin.com/in/jade-santiago/"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="LinkedIn"
+      title="LinkedIn"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4.98 3.5A2.48 2.48 0 1 0 5 8.46 2.48 2.48 0 0 0 4.98 3.5ZM3 9.75h3.97V21H3V9.75Zm7.02 0H13.8v1.54h.05c.53-1 1.82-2.05 3.74-2.05 4 0 4.74 2.63 4.74 6.05V21h-3.97v-5.09c0-1.21-.02-2.77-1.69-2.77-1.69 0-1.95 1.32-1.95 2.68V21h-3.97V9.75Z"/>
+      </svg>
+    </a>
+  </div>
+
+  <div class="footer-credit">
+    Feito por <strong>Jade Pereira</strong> <span>♡</span>
+  </div>
+</footer>
+
+
+    <aside id="detailsDrawer" class="details-drawer glass">
+      <div class="drawer-header">
+        <div>
+          <h3>Detalhes do registro</h3>
+          <p>Informações completas da nascente selecionada.</p>
+        </div>
+        <button id="drawerClose" class="icon-btn" title="Fechar detalhes" type="button">✕</button>
+      </div>
+
+      <div id="detailsContent" class="empty-state">
+        Nenhum registro selecionado ainda.
+      </div>
+    </aside>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/js/dashboard.js?v=4"></script>
+</body>
+</html>
