@@ -981,14 +981,14 @@ def dashboard():
 
     .topbar {
       position: absolute;
-      top: 16px;
-      left: 16px;
-      right: 16px;
+      top: 20px;
+      left: 20px;
+      right: 20px;
       z-index: 1001;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 14px;
+      gap: 18px;
       pointer-events: none;
     }
 
@@ -996,8 +996,8 @@ def dashboard():
     .credit-card {
       pointer-events: auto;
       border-radius: var(--radius-xl);
-      padding: 14px 16px;
-      max-width: 380px;
+      padding: 18px 20px;
+      max-width: 420px;
     }
 
     .brand-card h1 {
@@ -1050,16 +1050,16 @@ def dashboard():
 
     .sidebar {
       position: absolute;
-      top: 104px;
-      left: 16px;
-      bottom: 16px;
-      width: 360px;
+      top: 150px;
+      left: 20px;
+      bottom: 20px;
+      width: 370px;
       z-index: 1000;
       border-radius: 28px;
       padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 18px;
       transition: transform 0.28s ease, width 0.28s ease;
     }
 
@@ -1106,7 +1106,7 @@ def dashboard():
     .kpis {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 12px;
     }
 
     .kpi {
@@ -1307,16 +1307,16 @@ def dashboard():
 
     .details-panel {
       position: absolute;
-      top: 104px;
-      right: 16px;
-      bottom: 16px;
+      top: 118px;
+      right: 20px;
+      bottom: 20px;
       width: 360px;
       z-index: 1000;
       border-radius: 28px;
-      padding: 16px;
+      padding: 18px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 18px;
       overflow: auto;
     }
 
