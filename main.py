@@ -1015,7 +1015,9 @@ def dashboard():
     }
 
     .credit-card {
-      min-width: 270px;
+      min-width: 300px;
+      max-width: 340px;
+      margin-top: 8px;
     }
 
     .credit-title {
@@ -1307,10 +1309,10 @@ def dashboard():
 
     .details-panel {
       position: absolute;
-      top: 118px;
+      top: 138px;
       right: 20px;
       bottom: 20px;
-      width: 360px;
+      width: 380px;
       z-index: 1000;
       border-radius: 28px;
       padding: 18px;
