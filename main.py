@@ -656,118 +656,146 @@ def dashboard():
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Águas para Viver - Dashboard</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <title>Águas para Viver</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
   <style>
-    body {
+    html, body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f6f8f7;
-      color: #1f2937;
-    }
-    .topbar {
-      padding: 16px 20px;
-      background: white;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .topbar h1 {
-      margin: 0;
-      font-size: 22px;
-    }
-    .topbar p {
-      margin: 6px 0 0;
-      color: #6b7280;
-    }
-    .layout {
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      height: calc(100vh - 78px);
-    }
-    .sidebar {
-      background: white;
-      border-right: 1px solid #e5e7eb;
-      overflow-y: auto;
-      padding: 16px;
-    }
-    .card {
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 12px;
-      background: #fff;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    .card:hover {
-      background: #f9fafb;
-    }
-    .card h3 {
-      margin: 0 0 8px;
-      font-size: 16px;
-    }
-    .meta {
-      font-size: 13px;
-      color: #4b5563;
-      line-height: 1.45;
-    }
-    .badge {
-      display: inline-block;
-      margin-top: 8px;
-      padding: 4px 8px;
-      border-radius: 999px;
-      font-size: 12px;
-      background: #ecfdf5;
-      color: #065f46;
-    }
-    #map {
       width: 100%;
       height: 100%;
+      font-family: Inter, Arial, sans-serif;
+      background: #0b0f14;
     }
+
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+
+    .floating-title {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+      background: rgba(18, 24, 32, 0.78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: white;
+      padding: 12px 14px;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+      max-width: 260px;
+    }
+
+    .floating-title h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .floating-title p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      line-height: 1.4;
+      color: rgba(255,255,255,0.82);
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.22);
+    }
+
+    .leaflet-popup-content {
+      margin: 0;
+      width: 220px !important;
+    }
+
+    .popup-card {
+      background: white;
+      color: #111827;
+    }
+
     .popup-img {
       width: 100%;
-      max-width: 240px;
-      border-radius: 8px;
-      margin-top: 8px;
+      height: 120px;
+      object-fit: cover;
       display: block;
+      background: #eef2f7;
     }
-    .empty {
+
+    .popup-body {
+      padding: 12px 12px 14px;
+    }
+
+    .popup-title {
+      margin: 0 0 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .popup-line {
+      margin: 4px 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #374151;
+    }
+
+    .popup-label {
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .leaflet-container a.leaflet-popup-close-button {
       color: #6b7280;
-      font-size: 14px;
+      padding: 8px 10px 0 0;
     }
-    @media (max-width: 900px) {
-      .layout {
-        grid-template-columns: 1fr;
-        grid-template-rows: 280px 1fr;
-      }
-      .sidebar {
-        order: 2;
-        border-right: none;
-        border-top: 1px solid #e5e7eb;
-      }
+
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.15) !important;
+      border-radius: 14px !important;
+      overflow: hidden;
+    }
+
+    .leaflet-control-zoom a {
+      width: 34px !important;
+      height: 34px !important;
+      line-height: 34px !important;
+      font-size: 18px !important;
     }
   </style>
 </head>
 <body>
-  <div class="topbar">
+  <div class="floating-title">
     <h1>🌱 Águas para Viver</h1>
-    <p>Mapa demonstrativo de registros de nascentes</p>
+    <p>Mapa demonstrativo de nascentes registradas (V.0.0.1) - Desenvolvido por Jade Pereira. </p>
   </div>
 
-  <div class="layout">
-    <aside class="sidebar">
-      <div id="lista"></div>
-    </aside>
-    <main id="map"></main>
-  </div>
+  <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map').setView([-19.861, -44.608], 12);
+    const map = L.map('map', {
+      zoomControl: true,
+      preferCanvas: true
+    }).setView([-19.861, -44.608], 13);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+    const satellite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        attribution: '&copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+      }
+    ).addTo(map);
 
     function escapeHtml(text) {
       if (text === null || text === undefined) return '-';
@@ -779,16 +807,37 @@ def dashboard():
         .replace(/'/g, '&#039;');
     }
 
+    function formatDate(value) {
+      if (!value) return '-';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return value;
+      return d.toLocaleString('pt-BR');
+    }
+
+    function popupHtml(r) {
+      const foto = r.foto_url
+        ? `<img class="popup-img" src="${r.foto_url}" alt="Foto da nascente"
+             onerror="this.style.display='none'">`
+        : '';
+
+      return `
+        <div class="popup-card">
+          ${foto}
+          <div class="popup-body">
+            <h3 class="popup-title">${escapeHtml(r.tipo_nascente || 'Nascente')}</h3>
+            <div class="popup-line"><span class="popup-label">Estado:</span> ${escapeHtml(r.estado_local)}</div>
+            <div class="popup-line"><span class="popup-label">Referência:</span> ${escapeHtml(r.ponto_referencia)}</div>
+            <div class="popup-line"><span class="popup-label">Telefone:</span> ${escapeHtml(r.telefone)}</div>
+            <div class="popup-line"><span class="popup-label">Data:</span> ${escapeHtml(formatDate(r.created_at))}</div>
+          </div>
+        </div>
+      `;
+    }
+
     async function carregarRegistros() {
       const res = await fetch('/registros');
       const data = await res.json();
       const registros = data.registros || [];
-      const lista = document.getElementById('lista');
-
-      if (!registros.length) {
-        lista.innerHTML = '<p class="empty">Nenhum registro encontrado.</p>';
-        return;
-      }
 
       const bounds = [];
 
@@ -796,48 +845,24 @@ def dashboard():
         const lat = r.latitude;
         const lng = r.longitude;
 
-        const fotoHtml = r.foto_url
-          ? `<img class="popup-img" src="${r.foto_url}" alt="Foto da nascente" />`
-          : '<p><em>Sem foto disponível</em></p>';
-
-        const popupHtml = `
-          <div style="min-width:220px;">
-            <strong>${escapeHtml(r.tipo_nascente || 'Nascente')}</strong><br/>
-            <b>Estado:</b> ${escapeHtml(r.estado_local)}<br/>
-            <b>Referência:</b> ${escapeHtml(r.ponto_referencia)}<br/>
-            <b>Telefone:</b> ${escapeHtml(r.telefone)}<br/>
-            <b>Data:</b> ${escapeHtml(r.created_at)}<br/>
-            ${fotoHtml}
-          </div>
-        `;
-
-        let marker = null;
-
-        if (lat !== null && lat !== undefined && lng !== null && lng !== undefined) {
-          marker = L.marker([lat, lng]).addTo(map).bindPopup(popupHtml);
-          bounds.push([lat, lng]);
+        if (lat === null || lat === undefined || lng === null || lng === undefined) {
+          return;
         }
 
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <h3>${escapeHtml(r.tipo_nascente || 'Nascente')}</h3>
-          <div class="meta">
-            <div><strong>Estado:</strong> ${escapeHtml(r.estado_local)}</div>
-            <div><strong>Referência:</strong> ${escapeHtml(r.ponto_referencia)}</div>
-            <div><strong>Coord.:</strong> ${escapeHtml(lat)}, ${escapeHtml(lng)}</div>
-          </div>
-          <span class="badge">Registro #${escapeHtml(r.id)}</span>
-        `;
+        const marker = L.circleMarker([lat, lng], {
+          radius: 7,
+          weight: 2,
+          color: '#ffffff',
+          fillColor: '#16a34a',
+          fillOpacity: 0.95
+        }).addTo(map);
 
-        card.addEventListener('click', () => {
-          if (marker) {
-            map.setView([lat, lng], 16);
-            marker.openPopup();
-          }
+        marker.bindPopup(popupHtml(r), {
+          maxWidth: 240,
+          closeButton: true
         });
 
-        lista.appendChild(card);
+        bounds.push([lat, lng]);
       });
 
       if (bounds.length) {
