@@ -116,7 +116,9 @@ def save_registration(state: dict[str, Any], phone: str) -> None:
 
     payload = {
         "telefone": phone,
-        "tipo_nascente": state.get("tipo_nascente"),
+        "esta_no_local": state.get("esta_no_local"),
+        "tempo_existencia": state.get("tempo_existencia"),
+        "periodo_aparece": state.get("periodo_aparece"),
         "estado_local": state.get("estado_local"),
         "ponto_referencia": state.get("ponto_referencia"),
         "latitude": state.get("latitude"),
@@ -256,35 +258,47 @@ def show_main_menu(to: str) -> dict[str, Any]:
     )
 
 
-def ask_tipo_nascente(to: str) -> dict[str, Any]:
+def ask_onde_esta(to: str) -> dict[str, Any]:
+    buttons = [
+        {"type": "reply", "reply": {"id": "onde_esta_sim", "title": "Sim, estou"}},
+        {"type": "reply", "reply": {"id": "onde_esta_nao", "title": "Não estou"}},
+    ]
+
+    return send_reply_buttons(
+        to=to,
+        body_text=(
+            "📍 Você está no local da nascente neste momento?\n\n"
+            "Se estiver no local, vamos pedir a localização e uma foto."
+        ),
+        buttons=buttons,
+        footer_text="Escolha uma opção",
+    )
+
+
+def ask_tempo_existencia(to: str) -> dict[str, Any]:
     sections = [
         {
-            "title": "Tipos de nascente",
+            "title": "Tempo de existência da nascente",
             "rows": [
                 {
-                    "id": "tipo_olho_dagua",
-                    "title": "Olho d'água",
-                    "description": "Nascente pontual e visível",
+                    "id": "tempo_0_10",
+                    "title": "0 a 10 anos",
+                    "description": "A nascente existe entre 0 e 10 anos",
                 },
                 {
-                    "id": "tipo_mina",
-                    "title": "Mina",
-                    "description": "Saída de água do terreno",
+                    "id": "tempo_10_20",
+                    "title": "10 a 20 anos",
+                    "description": "A nascente existe entre 10 e 20 anos",
                 },
                 {
-                    "id": "tipo_brejo",
-                    "title": "Brejo",
-                    "description": "Área encharcada",
+                    "id": "tempo_acima_20",
+                    "title": "Acima de 20 anos",
+                    "description": "A nascente existe há mais de 20 anos",
                 },
                 {
-                    "id": "tipo_corrego",
-                    "title": "Córrego",
-                    "description": "Curso d'água associado",
-                },
-                {
-                    "id": "tipo_outro",
-                    "title": "Outro",
-                    "description": "Outro tipo informado",
+                    "id": "tempo_nao_sei",
+                    "title": "Não sei informar",
+                    "description": "Não sei estimar",
                 },
             ],
         }
@@ -293,48 +307,99 @@ def ask_tipo_nascente(to: str) -> dict[str, Any]:
     return send_list_message(
         to=to,
         header_text="Cadastro de nascente",
-        body_text="1️⃣ Escolha o tipo de nascente:",
+        body_text="📅 Há quanto tempo essa nascente existe nesse local?",
         button_text="Ver opções",
         sections=sections,
         footer_text="Selecione uma opção",
     )
 
 
-def ask_estado_local(to: str) -> dict[str, Any]:
+def ask_periodo_aparece(to: str) -> dict[str, Any]:
     buttons = [
-        {"type": "reply", "reply": {"id": "estado_preservado", "title": "Preservado"}},
-        {"type": "reply", "reply": {"id": "estado_alterado", "title": "Alterado"}},
-        {"type": "reply", "reply": {"id": "estado_degradado", "title": "Degradado"}},
+        {"type": "reply", "reply": {"id": "periodo_ano_todo", "title": "Ano todo"}},
+        {"type": "reply", "reply": {"id": "periodo_chuvoso", "title": "Só chuvoso"}},
+        {"type": "reply", "reply": {"id": "periodo_nao_sei", "title": "Não sei"}},
     ]
 
     return send_reply_buttons(
         to=to,
-        body_text="2️⃣ Como está o local?",
+        body_text="🌦️ Em qual período essa nascente aparece?",
         buttons=buttons,
         footer_text="Escolha uma opção",
     )
 
 
-def ask_localizacao_opcoes(to: str) -> dict[str, Any]:
+def ask_estado_local(to: str) -> dict[str, Any]:
     buttons = [
-        {"type": "reply", "reply": {"id": "localizacao_enviar", "title": "Enviar localização"}},
-        {"type": "reply", "reply": {"id": "localizacao_pular", "title": "Pular"}},
+        {"type": "reply", "reply": {"id": "estado_preservado", "title": "Preservado"}},
+        {"type": "reply", "reply": {"id": "estado_degradado", "title": "Degradado"}},
+    ]
+
+    return send_reply_buttons(
+        to=to,
+        body_text="🔍 Como está o local da nascente?",
+        buttons=buttons,
+        footer_text="Escolha uma opção",
+    )
+
+
+def ask_location_required(to: str) -> dict[str, Any]:
+    return send_text_message(
+        to,
+        (
+            "📍 Envie agora a localização da nascente.\n\n"
+            "Como enviar no WhatsApp:\n"
+            "1. Toque no ícone de clipe 📎\n"
+            "2. Selecione 'Localização'\n"
+            "3. Toque em 'Enviar sua localização atual'\n\n"
+            "Nesta etapa, preciso da localização para continuar."
+        ),
+    )
+
+
+def ask_photo_required(to: str) -> dict[str, Any]:
+    return send_text_message(
+        to,
+        (
+            "📷 Agora envie uma foto da nascente.\n\n"
+            "Nesta etapa, aceito apenas foto.\n"
+            "Não consigo receber áudio, vídeo, documento ou figurinhas para esse campo."
+        ),
+    )
+
+
+def ask_optional_photo_decision(to: str) -> dict[str, Any]:
+    buttons = [
+        {"type": "reply", "reply": {"id": "foto_opcional_sim", "title": "Tenho foto"}},
+        {"type": "reply", "reply": {"id": "foto_opcional_nao", "title": "Não tenho"}},
     ]
 
     return send_reply_buttons(
         to=to,
         body_text=(
-            "4️⃣ Agora precisamos da localização da nascente.\n\n"
-            "📍 Importante: a pessoa precisa estar próxima do local no momento do envio, "
-            "para que a coordenada fique mais precisa.\n\n"
-            "Como enviar a localização no WhatsApp:\n"
-            "1. Toque no ícone de clipe ou '+'\n"
-            "2. Selecione 'Localização'\n"
-            "3. Toque em 'Enviar sua localização atual'\n\n"
-            "Se preferir, é possível pular essa etapa."
+            "📷 Você tem uma foto da nascente para enviar?\n\n"
+            "Ela não é obrigatória nessa situação, mas ajuda muito na análise."
         ),
         buttons=buttons,
         footer_text="Escolha uma opção",
+    )
+
+
+def ask_optional_photo_send(to: str) -> dict[str, Any]:
+    return send_text_message(
+        to,
+        (
+            "📷 Pode enviar a foto da nascente agora.\n\n"
+            "Nesta etapa, aceito apenas imagem.\n"
+            "Se mudar de ideia e quiser seguir sem foto, envie 'oi' para reiniciar o fluxo."
+        ),
+    )
+
+
+def ask_referencia(to: str) -> dict[str, Any]:
+    return send_text_message(
+        to,
+        "📍 Informe um ponto de referência da nascente.\nEx.: perto da ponte, atrás da escola, ao lado da estrada."
     )
 
 
@@ -411,49 +476,176 @@ def handle_start_or_menu(from_number: str) -> None:
     show_main_menu(from_number)
 
 
+def handle_unexpected_message_type(from_number: str, parsed: dict[str, Any]) -> None:
+    state = get_user_state(from_number)
+    step = state.get("step")
+    message_type = parsed.get("type")
+
+    if step == "localizacao":
+        send_text_message(
+            from_number,
+            (
+                "Ainda estou aguardando a localização da nascente 📍\n\n"
+                "Envie a localização atual pelo WhatsApp para continuar. "
+                "Nesta etapa, não consigo avançar com outro tipo de mensagem."
+            ),
+        )
+        return
+
+    if step in {"foto", "foto_opcional_envio"}:
+        send_text_message(
+            from_number,
+            (
+                "Ainda estou aguardando uma foto da nascente 📷\n\n"
+                "Envie apenas uma imagem. "
+                "Não consigo aceitar áudio, vídeo, documento, figurinha ou outro formato nesta etapa."
+            ),
+        )
+        return
+
+    if step == "referencia":
+        send_text_message(
+            from_number,
+            (
+                "Ainda preciso do ponto de referência em texto.\n\n"
+                "Escreva uma referência do local, como por exemplo: "
+                "'perto da ponte', 'atrás da escola' ou 'ao lado da estrada'."
+            ),
+        )
+        return
+
+    if step == "periodo_aparece":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar em qual período a nascente aparece."
+        )
+        return
+
+    if step == "estado_local":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar como está o local da nascente."
+        )
+        return
+
+    if step == "tempo_existencia":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar há quanto tempo a nascente existe nesse local."
+        )
+        return
+
+    if step == "onde_esta":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar se você está ou não no local da nascente."
+        )
+        return
+
+    if step == "foto_opcional_decisao":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar se você tem ou não uma foto da nascente."
+        )
+        return
+
+    if step == "confirmacao":
+        send_text_message(
+            from_number,
+            "Para concluir, escolha uma das opções de confirmação exibidas na conversa."
+        )
+        return
+
+    send_text_message(
+        from_number,
+        f"Recebi uma mensagem do tipo '{message_type}', mas neste momento preciso que você siga o fluxo do formulário. Para recomeçar, envie 'oi'."
+    )
+
+
+def build_summary(state: dict[str, Any]) -> str:
+    linhas = [
+        "Resumo do registro:",
+        f"• Está no local: {state.get('esta_no_local', '-')}",
+        f"• Tempo de existência: {state.get('tempo_existencia', '-')}",
+        f"• Período em que aparece: {state.get('periodo_aparece', '-')}",
+        f"• Estado do local: {state.get('estado_local', '-')}",
+        f"• Referência: {state.get('ponto_referencia', '-')}",
+    ]
+
+    if state.get("latitude") is not None or state.get("longitude") is not None:
+        linhas.append(f"• Latitude: {state.get('latitude', '-')}")
+        linhas.append(f"• Longitude: {state.get('longitude', '-')}")
+    else:
+        linhas.append("• Localização enviada: Não")
+
+    linhas.append(f"• Foto enviada: {'Sim' if state.get('image_id') else 'Não'}")
+    linhas.append("")
+    linhas.append("Deseja finalizar?")
+
+    return "\n".join(linhas)
+
+
 def handle_button_reply(from_number: str, parsed: dict[str, Any]) -> None:
     state = get_user_state(from_number)
     button_id = parsed["button_id"]
 
     if button_id == "menu_registrar":
-        state["step"] = "tipo_nascente"
-        ask_tipo_nascente(from_number)
+        state["step"] = "onde_esta"
+        ask_onde_esta(from_number)
         return
 
     if button_id == "menu_saber_mais":
         send_text_message(
             from_number,
-            "O projeto Águas para Viver recebe registros de nascentes com descrição, localização e foto para apoiar o monitoramento ambiental."
+            "O projeto Águas para Viver recebe registros de nascentes com informações sobre localização, foto e condições do local para apoiar o monitoramento ambiental."
         )
         return
 
-    if button_id in {"estado_preservado", "estado_alterado", "estado_degradado"}:
+    if button_id == "onde_esta_sim":
+        state["esta_no_local"] = "Sim"
+        state["step"] = "localizacao"
+        ask_location_required(from_number)
+        return
+
+    if button_id == "onde_esta_nao":
+        state["esta_no_local"] = "Não"
+        state["latitude"] = None
+        state["longitude"] = None
+        state["step"] = "tempo_existencia"
+        ask_tempo_existencia(from_number)
+        return
+
+    if button_id in {"periodo_ano_todo", "periodo_chuvoso", "periodo_nao_sei"}:
+        mapa_periodo = {
+            "periodo_ano_todo": "Ano todo",
+            "periodo_chuvoso": "Só em período chuvoso",
+            "periodo_nao_sei": "Não sei informar",
+        }
+        state["periodo_aparece"] = mapa_periodo[button_id]
+        state["step"] = "estado_local"
+        ask_estado_local(from_number)
+        return
+
+    if button_id in {"estado_preservado", "estado_degradado"}:
         mapa_estado = {
             "estado_preservado": "Preservado",
-            "estado_alterado": "Alterado",
             "estado_degradado": "Degradado",
         }
         state["estado_local"] = mapa_estado[button_id]
         state["step"] = "referencia"
-        send_text_message(
-            from_number,
-            "3️⃣ Informe um ponto de referência da nascente.\nEx.: perto da ponte, atrás da escola, ao lado da estrada."
-        )
+        ask_referencia(from_number)
         return
 
-    if button_id == "localizacao_enviar":
-        state["step"] = "localizacao"
-        send_text_message(from_number, "Perfeito. Pode enviar a localização atual da nascente 📍")
+    if button_id == "foto_opcional_sim":
+        state["step"] = "foto_opcional_envio"
+        ask_optional_photo_send(from_number)
         return
 
-    if button_id == "localizacao_pular":
-        state["latitude"] = None
-        state["longitude"] = None
-        state["step"] = "foto"
-        send_text_message(
-            from_number,
-            "Tudo certo. Vamos seguir sem a localização.\n\n5️⃣ Agora envie uma foto 📷 da nascente."
-        )
+    if button_id == "foto_opcional_nao":
+        state["image_id"] = None
+        state["step"] = "confirmacao"
+        send_text_message(from_number, build_summary(state))
+        ask_confirmacao(from_number)
         return
 
     if button_id == "confirmar_envio":
@@ -485,29 +677,38 @@ def handle_button_reply(from_number: str, parsed: dict[str, Any]) -> None:
         reset_user_state(from_number)
         return
 
-    send_text_message(from_number, "Não foi possível identificar essa ação. Para recomeçar, envie 'oi'.")
+    send_text_message(
+        from_number,
+        "Não foi possível identificar essa ação. Para recomeçar, envie 'oi'."
+    )
 
 
 def handle_list_reply(from_number: str, parsed: dict[str, Any]) -> None:
     state = get_user_state(from_number)
     list_id = parsed["list_id"]
 
-    mapa_tipos = {
-        "tipo_olho_dagua": "Olho d'água",
-        "tipo_mina": "Mina",
-        "tipo_brejo": "Brejo",
-        "tipo_corrego": "Córrego",
-        "tipo_outro": "Outro",
+    mapa_tempo = {
+        "tempo_0_10": "0 a 10 anos",
+        "tempo_10_20": "10 a 20 anos",
+        "tempo_acima_20": "Acima de 20 anos",
+        "tempo_nao_sei": "Não sei informar",
     }
 
-    if list_id in mapa_tipos:
-        state["tipo_nascente"] = mapa_tipos[list_id]
-        state["step"] = "estado_local"
-        ask_estado_local(from_number)
+    if list_id in mapa_tempo:
+        state["tempo_existencia"] = mapa_tempo[list_id]
+        state["step"] = "periodo_aparece"
+        ask_periodo_aparece(from_number)
         return
 
-    send_text_message(from_number, "Não foi possível identificar a opção escolhida. Vamos tentar de novo.")
-    ask_tipo_nascente(from_number)
+    send_text_message(
+        from_number,
+        "Não foi possível identificar a opção escolhida. Vamos tentar novamente."
+    )
+
+    if state.get("step") == "tempo_existencia":
+        ask_tempo_existencia(from_number)
+    else:
+        show_main_menu(from_number)
 
 
 def handle_text(from_number: str, parsed: dict[str, Any]) -> None:
@@ -525,21 +726,68 @@ def handle_text(from_number: str, parsed: dict[str, Any]) -> None:
 
     if step == "referencia":
         state["ponto_referencia"] = text
-        state["step"] = "aguardando_decisao_localizacao"
-        ask_localizacao_opcoes(from_number)
+
+        if state.get("esta_no_local") == "Sim":
+            state["step"] = "confirmacao"
+            send_text_message(from_number, build_summary(state))
+            ask_confirmacao(from_number)
+        else:
+            state["step"] = "foto_opcional_decisao"
+            ask_optional_photo_decision(from_number)
         return
 
     if step == "localizacao":
         send_text_message(
             from_number,
-            "Ainda precisamos da localização 📍. Use o recurso de compartilhar localização do WhatsApp."
+            (
+                "Ainda preciso da localização da nascente 📍\n\n"
+                "Use o recurso de compartilhar localização do WhatsApp para continuar."
+            ),
         )
         return
 
-    if step == "foto":
+    if step in {"foto", "foto_opcional_envio"}:
         send_text_message(
             from_number,
-            "Agora precisamos da foto 📷 da nascente para concluir o registro."
+            (
+                "Ainda preciso da foto da nascente 📷\n\n"
+                "Envie apenas uma imagem para continuar."
+            ),
+        )
+        return
+
+    if step == "onde_esta":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar se você está ou não no local da nascente."
+        )
+        return
+
+    if step == "tempo_existencia":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar há quanto tempo a nascente existe nesse local."
+        )
+        return
+
+    if step == "periodo_aparece":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar em qual período a nascente aparece."
+        )
+        return
+
+    if step == "estado_local":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar como está o local da nascente."
+        )
+        return
+
+    if step == "foto_opcional_decisao":
+        send_text_message(
+            from_number,
+            "Escolha uma das opções exibidas para informar se você tem ou não uma foto da nascente."
         )
         return
 
@@ -550,7 +798,10 @@ def handle_text(from_number: str, parsed: dict[str, Any]) -> None:
         )
         return
 
-    send_text_message(from_number, "Para começar ou reiniciar o atendimento, envie 'oi'.")
+    send_text_message(
+        from_number,
+        "Para começar ou reiniciar o atendimento, envie 'oi'."
+    )
 
 
 def handle_location(from_number: str, parsed: dict[str, Any]) -> None:
@@ -560,7 +811,11 @@ def handle_location(from_number: str, parsed: dict[str, Any]) -> None:
     if step != "localizacao":
         send_text_message(
             from_number,
-            "Recebemos uma localização fora da etapa esperada. Para iniciar um novo registro, envie 'oi'."
+            (
+                "Recebi uma localização fora da etapa esperada.\n\n"
+                "Por enquanto, siga a pergunta atual do formulário. "
+                "Se quiser recomeçar, envie 'oi'."
+            ),
         )
         return
 
@@ -571,7 +826,7 @@ def handle_location(from_number: str, parsed: dict[str, Any]) -> None:
 
     send_text_message(
         from_number,
-        "5️⃣ Localização recebida com sucesso. Agora envie uma foto 📷 da nascente."
+        "Localização recebida com sucesso ✅\n\nAgora envie uma foto da nascente 📷"
     )
 
 
@@ -579,27 +834,28 @@ def handle_image(from_number: str, parsed: dict[str, Any]) -> None:
     state = get_user_state(from_number)
     step = state.get("step")
 
-    if step != "foto":
+    if step not in {"foto", "foto_opcional_envio"}:
         send_text_message(
             from_number,
-            "Recebemos uma foto fora da etapa esperada. Para iniciar um novo registro, envie 'oi'."
+            (
+                "Recebi uma foto fora da etapa esperada.\n\n"
+                "Por enquanto, siga a pergunta atual do formulário. "
+                "Se quiser recomeçar, envie 'oi'."
+            ),
         )
         return
 
     state["image_id"] = parsed["image_id"]
+
+    if step == "foto":
+        state["step"] = "tempo_existencia"
+        send_text_message(from_number, "Foto recebida com sucesso ✅")
+        ask_tempo_existencia(from_number)
+        return
+
     state["step"] = "confirmacao"
-
-    resumo = (
-        "Resumo do registro:\n"
-        f"• Tipo: {state.get('tipo_nascente', '-')}\n"
-        f"• Estado: {state.get('estado_local', '-')}\n"
-        f"• Referência: {state.get('ponto_referencia', '-')}\n"
-        f"• Latitude: {state.get('latitude', '-')}\n"
-        f"• Longitude: {state.get('longitude', '-')}\n\n"
-        "Deseja finalizar?"
-    )
-
-    send_text_message(from_number, resumo)
+    send_text_message(from_number, "Foto recebida com sucesso ✅")
+    send_text_message(from_number, build_summary(state))
     ask_confirmacao(from_number)
 
 
@@ -634,7 +890,9 @@ def listar_registros():
             "id": item.get("id"),
             "created_at": item.get("created_at"),
             "telefone": item.get("telefone"),
-            "tipo_nascente": item.get("tipo_nascente"),
+            "esta_no_local": item.get("esta_no_local"),
+            "tempo_existencia": item.get("tempo_existencia"),
+            "periodo_aparece": item.get("periodo_aparece"),
             "estado_local": item.get("estado_local"),
             "ponto_referencia": item.get("ponto_referencia"),
             "latitude": item.get("latitude"),
@@ -689,7 +947,7 @@ def dashboard():
       padding: 12px 14px;
       border-radius: 14px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-      max-width: 260px;
+      max-width: 300px;
     }
 
     .floating-title h1 {
@@ -777,7 +1035,7 @@ def dashboard():
 <body>
   <div class="floating-title">
     <h1>🌱 Águas para Viver</h1>
-    <p>Mapa demonstrativo de nascentes registradas (V.0.0.1) - Desenvolvido por Jade Pereira. </p>
+    <p>Mapa demonstrativo de nascentes registradas (V.0.0.2) - Desenvolvido por Jade Pereira.</p>
   </div>
 
   <div id="map"></div>
@@ -789,10 +1047,10 @@ def dashboard():
       preferCanvas: true
     }).setView([-19.861, -44.608], 13);
 
-    const satellite = L.tileLayer(
+    L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       {
-        maxZoom: 19,
+        maxZoom: 24,
         attribution: '&copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community'
       }
     ).addTo(map);
@@ -824,10 +1082,11 @@ def dashboard():
         <div class="popup-card">
           ${foto}
           <div class="popup-body">
-            <h3 class="popup-title">${escapeHtml(r.tipo_nascente || 'Nascente')}</h3>
+            <h3 class="popup-title">Registro de nascente</h3>
+            <div class="popup-line"><span class="popup-label">Tempo de existência:</span> ${escapeHtml(r.tempo_existencia)}</div>
+            <div class="popup-line"><span class="popup-label">Período:</span> ${escapeHtml(r.periodo_aparece)}</div>
             <div class="popup-line"><span class="popup-label">Estado:</span> ${escapeHtml(r.estado_local)}</div>
             <div class="popup-line"><span class="popup-label">Referência:</span> ${escapeHtml(r.ponto_referencia)}</div>
-            <div class="popup-line"><span class="popup-label">Telefone:</span> ${escapeHtml(r.telefone)}</div>
             <div class="popup-line"><span class="popup-label">Data:</span> ${escapeHtml(formatDate(r.created_at))}</div>
           </div>
         </div>
@@ -927,10 +1186,7 @@ async def receive_webhook(request: Request) -> JSONResponse:
         elif parsed["type"] == "image":
             handle_image(from_number, parsed)
         else:
-            send_text_message(
-                from_number,
-                f"Recebemos uma mensagem do tipo '{parsed['type']}', mas esse formato ainda não está configurado."
-            )
+            handle_unexpected_message_type(from_number, parsed)
 
     except Exception as e:
         print("=== ERRO AO PROCESSAR WEBHOOK ===")
