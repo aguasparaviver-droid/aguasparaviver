@@ -3,6 +3,7 @@ import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse, JSONResponse
 from dotenv import load_dotenv
+from supabase import create_client, Client
 
 load_dotenv()
 
