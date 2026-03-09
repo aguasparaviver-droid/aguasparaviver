@@ -20,9 +20,12 @@ const filterDegradado = document.getElementById('filterDegradado');
 const missingList = document.getElementById('missingList');
 const missingCount = document.getElementById('missingCount');
 const detailsContent = document.getElementById('detailsContent');
-const detailsDrawer = document.getElementById('detailsDrawer');
-const drawerClose = document.getElementById('drawerClose');
+
 const sidebar = document.getElementById('sidebar');
+const sidebarMain = document.getElementById('sidebarMain');
+const sidebarDetails = document.getElementById('sidebarDetails');
+const backToFilters = document.getElementById('backToFilters');
+
 const floatingMenuButton = document.getElementById('floatingMenuButton');
 
 function updateSidebarState() {
@@ -44,16 +47,33 @@ function toggleSidebar() {
   updateSidebarState();
 }
 
-function openDetailsDrawer() {
-  detailsDrawer.classList.add('open');
+function showMainView() {
+  sidebarMain.classList.add('active');
+  sidebarDetails.classList.remove('active');
 }
 
-function closeDetailsDrawer() {
-  detailsDrawer.classList.remove('open');
+function showDetailsView() {
+  sidebarMain.classList.remove('active');
+  sidebarDetails.classList.add('active');
+}
+
+function openDetails(record) {
+  detailsContent.className = '';
+  detailsContent.innerHTML = buildDetailsHtml(record);
+  showDetailsView();
+
+  if (sidebar.classList.contains('closed')) {
+    sidebar.classList.remove('closed');
+    updateSidebarState();
+  }
+}
+
+function backToMain() {
+  showMainView();
 }
 
 floatingMenuButton.addEventListener('click', toggleSidebar);
-drawerClose.addEventListener('click', closeDetailsDrawer);
+backToFilters.addEventListener('click', backToMain);
 
 filterPreservado.addEventListener('change', applyFilters);
 filterDegradado.addEventListener('change', applyFilters);
@@ -209,12 +229,6 @@ function buildDetailsHtml(r) {
   `;
 }
 
-function setDetails(r) {
-  detailsContent.className = '';
-  detailsContent.innerHTML = buildDetailsHtml(r);
-  openDetailsDrawer();
-}
-
 function updateKpis(registros) {
   const total = registros.length;
   const mapeados = registros.filter(r => r.latitude != null && r.longitude != null).length;
@@ -328,7 +342,7 @@ async function carregarRegistros() {
     });
 
     marker.on('click', () => {
-      setDetails(r);
+      openDetails(r);
     });
 
     if (markerShouldBeVisible(r)) {
@@ -347,4 +361,5 @@ async function carregarRegistros() {
 }
 
 updateSidebarState();
+showMainView();
 carregarRegistros();
