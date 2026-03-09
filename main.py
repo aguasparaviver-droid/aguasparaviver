@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from typing import Any
 
 import requests
@@ -18,6 +19,7 @@ GRAPH_VERSION = os.getenv("GRAPH_VERSION", "v22.0")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "nascente-fotos")
 
 GRAPH_URL = f"https://graph.facebook.com/{GRAPH_VERSION}"
 
@@ -25,14 +27,82 @@ supabase: Client | None = None
 if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Estado em memória para MVP
 user_states: dict[str, dict[str, Any]] = {}
+
+
+def get_media_url(image_id: str) -> tuple[str, str | None]:
+    url = f"{GRAPH_URL}/{image_id}"
+    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
+
+    response = requests.get(url, headers=headers, timeout=30)
+    response.raise_for_status()
+
+    data = response.json()
+    media_url = data["url"]
+    mime_type = data.get("mime_type")
+
+    print("=== META MEDIA INFO ===")
+    print(data)
+
+    return media_url, mime_type
+
+
+def download_media_bytes(media_url: str) -> bytes:
+    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
+
+    response = requests.get(media_url, headers=headers, timeout=60)
+    response.raise_for_status()
+
+    return response.content
+
+
+def guess_extension(mime_type: str | None) -> str:
+    mapping = {
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }
+    return mapping.get((mime_type or "").lower(), ".jpg")
+
+
+def upload_image_to_supabase(phone: str, image_id: str) -> str | None:
+    if not supabase:
+        print("SUPABASE NÃO CONFIGURADO. IMAGEM NÃO SERÁ ENVIADA.")
+        return None
+
+    media_url, mime_type = get_media_url(image_id)
+    image_bytes = download_media_bytes(media_url)
+    extension = guess_extension(mime_type)
+
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+    file_path = f"{phone}/{timestamp}_{image_id}{extension}"
+
+    print("=== ENVIANDO IMAGEM PARA O SUPABASE STORAGE ===")
+    print({"bucket": SUPABASE_BUCKET, "path": file_path, "mime_type": mime_type})
+
+    supabase.storage.from_(SUPABASE_BUCKET).upload(
+        path=file_path,
+        file=image_bytes,
+        file_options={
+            "content-type": mime_type or "image/jpeg",
+            "upsert": "false",
+        },
+    )
+
+    print("=== IMAGEM ENVIADA PARA O STORAGE ===")
+    return file_path
 
 
 def save_registration(state: dict[str, Any], phone: str) -> None:
     if not supabase:
-        print("SUPABASE NÃO CONFIGURADO. REGISTRO NÃO SERÁ SALVO NO BANCO.")
-        return
+        raise RuntimeError("Supabase não configurado.")
+
+    foto_path = None
+    image_id = state.get("image_id")
+
+    if image_id:
+        foto_path = upload_image_to_supabase(phone, image_id)
 
     payload = {
         "telefone": phone,
@@ -41,11 +111,16 @@ def save_registration(state: dict[str, Any], phone: str) -> None:
         "ponto_referencia": state.get("ponto_referencia"),
         "latitude": state.get("latitude"),
         "longitude": state.get("longitude"),
-        "image_id": state.get("image_id"),
+        "image_id": image_id,
+        "foto_path": foto_path,
         "status_envio": "confirmado",
     }
 
+    print("=== PAYLOAD ENVIADO AO SUPABASE ===")
+    print(payload)
+
     response = supabase.table("registros_nascentes").insert(payload).execute()
+
     print("=== REGISTRO SALVO NO SUPABASE ===")
     print(response)
 
@@ -217,18 +292,9 @@ def ask_tipo_nascente(to: str) -> dict[str, Any]:
 
 def ask_estado_local(to: str) -> dict[str, Any]:
     buttons = [
-        {
-            "type": "reply",
-            "reply": {"id": "estado_preservado", "title": "Preservado"},
-        },
-        {
-            "type": "reply",
-            "reply": {"id": "estado_alterado", "title": "Alterado"},
-        },
-        {
-            "type": "reply",
-            "reply": {"id": "estado_degradado", "title": "Degradado"},
-        },
+        {"type": "reply", "reply": {"id": "estado_preservado", "title": "Preservado"}},
+        {"type": "reply", "reply": {"id": "estado_alterado", "title": "Alterado"}},
+        {"type": "reply", "reply": {"id": "estado_degradado", "title": "Degradado"}},
     ]
 
     return send_reply_buttons(
@@ -241,14 +307,8 @@ def ask_estado_local(to: str) -> dict[str, Any]:
 
 def ask_localizacao_opcoes(to: str) -> dict[str, Any]:
     buttons = [
-        {
-            "type": "reply",
-            "reply": {"id": "localizacao_enviar", "title": "Enviar localização"},
-        },
-        {
-            "type": "reply",
-            "reply": {"id": "localizacao_pular", "title": "Pular"},
-        },
+        {"type": "reply", "reply": {"id": "localizacao_enviar", "title": "Enviar localização"}},
+        {"type": "reply", "reply": {"id": "localizacao_pular", "title": "Pular"}},
     ]
 
     return send_reply_buttons(
@@ -270,14 +330,8 @@ def ask_localizacao_opcoes(to: str) -> dict[str, Any]:
 
 def ask_confirmacao(to: str) -> dict[str, Any]:
     buttons = [
-        {
-            "type": "reply",
-            "reply": {"id": "confirmar_envio", "title": "Confirmar"},
-        },
-        {
-            "type": "reply",
-            "reply": {"id": "cancelar_envio", "title": "Cancelar"},
-        },
+        {"type": "reply", "reply": {"id": "confirmar_envio", "title": "Confirmar"}},
+        {"type": "reply", "reply": {"id": "cancelar_envio", "title": "Cancelar"}},
     ]
 
     return send_reply_buttons(
@@ -379,10 +433,7 @@ def handle_button_reply(from_number: str, parsed: dict[str, Any]) -> None:
 
     if button_id == "localizacao_enviar":
         state["step"] = "localizacao"
-        send_text_message(
-            from_number,
-            "Perfeito. Pode enviar a localização atual da nascente 📍"
-        )
+        send_text_message(from_number, "Perfeito. Pode enviar a localização atual da nascente 📍")
         return
 
     if button_id == "localizacao_pular":
@@ -406,7 +457,8 @@ def handle_button_reply(from_number: str, parsed: dict[str, Any]) -> None:
                 "✅ Registro enviado com sucesso. Agradecemos pela contribuição.\n\nQuando quiser iniciar um novo registro, é só enviar 'oi'."
             )
         except Exception as e:
-            print("ERRO AO SALVAR NO SUPABASE:", str(e))
+            print("=== ERRO AO SALVAR NO SUPABASE NO FLUXO FINAL ===")
+            print(repr(e))
             send_text_message(
                 from_number,
                 "Recebemos seus dados, mas houve uma falha ao salvar o registro final. Tente novamente em instantes."
@@ -423,10 +475,7 @@ def handle_button_reply(from_number: str, parsed: dict[str, Any]) -> None:
         reset_user_state(from_number)
         return
 
-    send_text_message(
-        from_number,
-        "Não foi possível identificar essa ação. Para recomeçar, envie 'oi'."
-    )
+    send_text_message(from_number, "Não foi possível identificar essa ação. Para recomeçar, envie 'oi'.")
 
 
 def handle_list_reply(from_number: str, parsed: dict[str, Any]) -> None:
@@ -447,10 +496,7 @@ def handle_list_reply(from_number: str, parsed: dict[str, Any]) -> None:
         ask_estado_local(from_number)
         return
 
-    send_text_message(
-        from_number,
-        "Não foi possível identificar a opção escolhida. Vamos tentar de novo."
-    )
+    send_text_message(from_number, "Não foi possível identificar a opção escolhida. Vamos tentar de novo.")
     ask_tipo_nascente(from_number)
 
 
@@ -494,10 +540,7 @@ def handle_text(from_number: str, parsed: dict[str, Any]) -> None:
         )
         return
 
-    send_text_message(
-        from_number,
-        "Para começar ou reiniciar o atendimento, envie 'oi'."
-    )
+    send_text_message(from_number, "Para começar ou reiniciar o atendimento, envie 'oi'.")
 
 
 def handle_location(from_number: str, parsed: dict[str, Any]) -> None:
@@ -601,19 +644,14 @@ async def receive_webhook(request: Request) -> JSONResponse:
 
         if parsed["type"] == "text":
             handle_text(from_number, parsed)
-
         elif parsed["type"] == "button_reply":
             handle_button_reply(from_number, parsed)
-
         elif parsed["type"] == "list_reply":
             handle_list_reply(from_number, parsed)
-
         elif parsed["type"] == "location":
             handle_location(from_number, parsed)
-
         elif parsed["type"] == "image":
             handle_image(from_number, parsed)
-
         else:
             send_text_message(
                 from_number,
@@ -622,6 +660,6 @@ async def receive_webhook(request: Request) -> JSONResponse:
 
     except Exception as e:
         print("=== ERRO AO PROCESSAR WEBHOOK ===")
-        print(str(e))
+        print(repr(e))
 
     return JSONResponse(content={"status": "ok"})
