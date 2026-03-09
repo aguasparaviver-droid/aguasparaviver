@@ -1,9 +1,11 @@
 import os
+from typing import Any
+
 import requests
-from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse, JSONResponse
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
+from supabase import Client, create_client
 
 load_dotenv()
 
@@ -14,13 +16,47 @@ WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 GRAPH_VERSION = os.getenv("GRAPH_VERSION", "v22.0")
 
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
 GRAPH_URL = f"https://graph.facebook.com/{GRAPH_VERSION}"
 
+supabase: Client | None = None
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 # Estado em memória para MVP
-user_states = {}
+user_states: dict[str, dict[str, Any]] = {}
 
 
-def send_request(payload: dict) -> dict:
+def save_registration(state: dict[str, Any], phone: str) -> None:
+    if not supabase:
+        print("SUPABASE NÃO CONFIGURADO. REGISTRO NÃO SERÁ SALVO NO BANCO.")
+        return
+
+    payload = {
+        "telefone": phone,
+        "tipo_nascente": state.get("tipo_nascente"),
+        "estado_local": state.get("estado_local"),
+        "ponto_referencia": state.get("ponto_referencia"),
+        "latitude": state.get("latitude"),
+        "longitude": state.get("longitude"),
+        "image_id": state.get("image_id"),
+        "status_envio": "confirmado",
+    }
+
+    response = supabase.table("registros_nascentes").insert(payload).execute()
+    print("=== REGISTRO SALVO NO SUPABASE ===")
+    print(response)
+
+
+def send_request(payload: dict[str, Any]) -> dict[str, Any]:
+    if not WHATSAPP_TOKEN:
+        raise RuntimeError("WHATSAPP_TOKEN não configurado.")
+
+    if not PHONE_NUMBER_ID:
+        raise RuntimeError("PHONE_NUMBER_ID não configurado.")
+
     url = f"{GRAPH_URL}/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
@@ -40,7 +76,7 @@ def send_request(payload: dict) -> dict:
     return response.json()
 
 
-def send_text_message(to: str, text: str) -> dict:
+def send_text_message(to: str, text: str) -> dict[str, Any]:
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
@@ -50,7 +86,12 @@ def send_text_message(to: str, text: str) -> dict:
     return send_request(payload)
 
 
-def send_reply_buttons(to: str, body_text: str, buttons: list, footer_text: str | None = None) -> dict:
+def send_reply_buttons(
+    to: str,
+    body_text: str,
+    buttons: list[dict[str, Any]],
+    footer_text: str | None = None,
+) -> dict[str, Any]:
     interactive = {
         "type": "button",
         "body": {"text": body_text},
@@ -73,10 +114,10 @@ def send_list_message(
     to: str,
     body_text: str,
     button_text: str,
-    sections: list,
+    sections: list[dict[str, Any]],
     header_text: str | None = None,
     footer_text: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     interactive = {
         "type": "list",
         "body": {"text": body_text},
@@ -104,7 +145,7 @@ def send_list_message(
     return send_request(payload)
 
 
-def show_main_menu(to: str) -> dict:
+def show_main_menu(to: str) -> dict[str, Any]:
     buttons = [
         {
             "type": "reply",
@@ -130,7 +171,7 @@ def show_main_menu(to: str) -> dict:
     )
 
 
-def ask_tipo_nascente(to: str) -> dict:
+def ask_tipo_nascente(to: str) -> dict[str, Any]:
     sections = [
         {
             "title": "Tipos de nascente",
@@ -174,7 +215,7 @@ def ask_tipo_nascente(to: str) -> dict:
     )
 
 
-def ask_estado_local(to: str) -> dict:
+def ask_estado_local(to: str) -> dict[str, Any]:
     buttons = [
         {
             "type": "reply",
@@ -198,7 +239,7 @@ def ask_estado_local(to: str) -> dict:
     )
 
 
-def ask_localizacao_opcoes(to: str) -> dict:
+def ask_localizacao_opcoes(to: str) -> dict[str, Any]:
     buttons = [
         {
             "type": "reply",
@@ -227,7 +268,7 @@ def ask_localizacao_opcoes(to: str) -> dict:
     )
 
 
-def ask_confirmacao(to: str) -> dict:
+def ask_confirmacao(to: str) -> dict[str, Any]:
     buttons = [
         {
             "type": "reply",
@@ -247,17 +288,17 @@ def ask_confirmacao(to: str) -> dict:
     )
 
 
-def reset_user_state(phone: str):
+def reset_user_state(phone: str) -> None:
     user_states[phone] = {"step": "menu"}
 
 
-def get_user_state(phone: str) -> dict:
+def get_user_state(phone: str) -> dict[str, Any]:
     if phone not in user_states:
         reset_user_state(phone)
     return user_states[phone]
 
 
-def parse_incoming_message(message: dict) -> dict:
+def parse_incoming_message(message: dict[str, Any]) -> dict[str, Any]:
     message_type = message.get("type")
 
     parsed = {
@@ -272,7 +313,7 @@ def parse_incoming_message(message: dict) -> dict:
     }
 
     if message_type == "text":
-        parsed["text"] = message["text"]["body"].strip()
+        parsed["text"] = message.get("text", {}).get("body", "").strip()
 
     elif message_type == "interactive":
         interactive = message.get("interactive", {})
@@ -280,32 +321,33 @@ def parse_incoming_message(message: dict) -> dict:
 
         if interactive_type == "button_reply":
             parsed["type"] = "button_reply"
-            parsed["button_id"] = interactive["button_reply"]["id"]
-            parsed["button_title"] = interactive["button_reply"]["title"]
+            parsed["button_id"] = interactive.get("button_reply", {}).get("id")
+            parsed["button_title"] = interactive.get("button_reply", {}).get("title")
 
         elif interactive_type == "list_reply":
             parsed["type"] = "list_reply"
-            parsed["list_id"] = interactive["list_reply"]["id"]
-            parsed["list_title"] = interactive["list_reply"]["title"]
+            parsed["list_id"] = interactive.get("list_reply", {}).get("id")
+            parsed["list_title"] = interactive.get("list_reply", {}).get("title")
 
     elif message_type == "location":
+        location = message.get("location", {})
         parsed["location"] = {
-            "latitude": message["location"]["latitude"],
-            "longitude": message["location"]["longitude"],
+            "latitude": location.get("latitude"),
+            "longitude": location.get("longitude"),
         }
 
     elif message_type == "image":
-        parsed["image_id"] = message["image"]["id"]
+        parsed["image_id"] = message.get("image", {}).get("id")
 
     return parsed
 
 
-def handle_start_or_menu(from_number: str):
+def handle_start_or_menu(from_number: str) -> None:
     reset_user_state(from_number)
     show_main_menu(from_number)
 
 
-def handle_button_reply(from_number: str, parsed: dict):
+def handle_button_reply(from_number: str, parsed: dict[str, Any]) -> None:
     state = get_user_state(from_number)
     button_id = parsed["button_id"]
 
@@ -357,10 +399,19 @@ def handle_button_reply(from_number: str, parsed: dict):
         print("=== REGISTRO FINAL ===")
         print(state)
 
-        send_text_message(
-            from_number,
-            "✅ Registro enviado com sucesso. Agradecemos pela contribuição.\n\nQuando quiser iniciar um novo registro, é só enviar 'oi'."
-        )
+        try:
+            save_registration(state, from_number)
+            send_text_message(
+                from_number,
+                "✅ Registro enviado com sucesso. Agradecemos pela contribuição.\n\nQuando quiser iniciar um novo registro, é só enviar 'oi'."
+            )
+        except Exception as e:
+            print("ERRO AO SALVAR NO SUPABASE:", str(e))
+            send_text_message(
+                from_number,
+                "Recebemos seus dados, mas houve uma falha ao salvar o registro final. Tente novamente em instantes."
+            )
+
         reset_user_state(from_number)
         return
 
@@ -372,10 +423,13 @@ def handle_button_reply(from_number: str, parsed: dict):
         reset_user_state(from_number)
         return
 
-    send_text_message(from_number, "Não foi possível identificar essa ação. Para recomeçar, envie 'oi'.")
+    send_text_message(
+        from_number,
+        "Não foi possível identificar essa ação. Para recomeçar, envie 'oi'."
+    )
 
 
-def handle_list_reply(from_number: str, parsed: dict):
+def handle_list_reply(from_number: str, parsed: dict[str, Any]) -> None:
     state = get_user_state(from_number)
     list_id = parsed["list_id"]
 
@@ -393,13 +447,16 @@ def handle_list_reply(from_number: str, parsed: dict):
         ask_estado_local(from_number)
         return
 
-    send_text_message(from_number, "Não foi possível identificar a opção escolhida. Vamos tentar de novo.")
+    send_text_message(
+        from_number,
+        "Não foi possível identificar a opção escolhida. Vamos tentar de novo."
+    )
     ask_tipo_nascente(from_number)
 
 
-def handle_text(from_number: str, parsed: dict):
+def handle_text(from_number: str, parsed: dict[str, Any]) -> None:
     state = get_user_state(from_number)
-    text = parsed["text"]
+    text = (parsed["text"] or "").strip()
     step = state.get("step")
 
     if text.lower() in {"oi", "olá", "ola", "menu", "iniciar", "start"}:
@@ -443,7 +500,7 @@ def handle_text(from_number: str, parsed: dict):
     )
 
 
-def handle_location(from_number: str, parsed: dict):
+def handle_location(from_number: str, parsed: dict[str, Any]) -> None:
     state = get_user_state(from_number)
     step = state.get("step")
 
@@ -454,8 +511,9 @@ def handle_location(from_number: str, parsed: dict):
         )
         return
 
-    state["latitude"] = parsed["location"]["latitude"]
-    state["longitude"] = parsed["location"]["longitude"]
+    location = parsed.get("location") or {}
+    state["latitude"] = location.get("latitude")
+    state["longitude"] = location.get("longitude")
     state["step"] = "foto"
 
     send_text_message(
@@ -464,7 +522,7 @@ def handle_location(from_number: str, parsed: dict):
     )
 
 
-def handle_image(from_number: str, parsed: dict):
+def handle_image(from_number: str, parsed: dict[str, Any]) -> None:
     state = get_user_state(from_number)
     step = state.get("step")
 
@@ -493,12 +551,17 @@ def handle_image(from_number: str, parsed: dict):
 
 
 @app.get("/")
-def root():
+def root() -> dict[str, str]:
     return {"status": "ok", "message": "API do bot está rodando."}
 
 
+@app.get("/health")
+def health() -> dict[str, bool]:
+    return {"ok": True}
+
+
 @app.get("/webhook")
-async def verify_webhook(request: Request):
+async def verify_webhook(request: Request) -> PlainTextResponse:
     mode = request.query_params.get("hub.mode")
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
@@ -510,10 +573,10 @@ async def verify_webhook(request: Request):
 
 
 @app.post("/webhook")
-async def receive_webhook(request: Request):
+async def receive_webhook(request: Request) -> JSONResponse:
     data = await request.json()
 
-    print("EVENTO RECEBIDO:")
+    print("=== EVENTO RECEBIDO ===")
     print(data)
 
     try:
@@ -527,9 +590,13 @@ async def receive_webhook(request: Request):
 
         message = messages[0]
         from_number = message.get("from")
+
+        if not from_number:
+            return JSONResponse(content={"status": "ok", "detail": "sem remetente"})
+
         parsed = parse_incoming_message(message)
 
-        print("MENSAGEM NORMALIZADA:")
+        print("=== MENSAGEM NORMALIZADA ===")
         print(parsed)
 
         if parsed["type"] == "text":
@@ -554,6 +621,7 @@ async def receive_webhook(request: Request):
             )
 
     except Exception as e:
-        print("ERRO AO PROCESSAR WEBHOOK:", str(e))
+        print("=== ERRO AO PROCESSAR WEBHOOK ===")
+        print(str(e))
 
     return JSONResponse(content={"status": "ok"})
