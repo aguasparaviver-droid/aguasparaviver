@@ -257,7 +257,7 @@ def show_main_menu(to: str) -> dict[str, Any]:
 
     return send_reply_buttons(
         to=to,
-        body_text="🌱 Olá! Este é o Águas para Viver.\nO que deseja fazer?",
+        body_text="🌱 Olá! Este é o Águas para Viver.\nO que deseja fazer hoje?",
         buttons=buttons,
         footer_text="Projeto de monitoramento de nascentes",
     )
